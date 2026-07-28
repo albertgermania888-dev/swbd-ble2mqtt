@@ -47,11 +47,9 @@ jobs:
       - name: Создать единый файл прошивки для ${{ matrix.name }}
         run: |
           cd build
-          # Явно указываем адреса для всех чипов
           esptool.py --chip ${{ matrix.chip }} merge_bin -o merged-firmware.bin \
-            0x1000 bootloader.bin \
-            0x8000 partition-table.bin \
-            0xd000 ota_data_initial.bin \
+            0x1000 bootloader/bootloader.bin \
+            0x8000 partition_table/partition-table.bin \
             0x10000 ble2mqtt.bin
           cd ..
 
