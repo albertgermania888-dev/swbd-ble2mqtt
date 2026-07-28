@@ -18,7 +18,6 @@ jobs:
     strategy:
       matrix:
         chip: [esp32, esp32c3, esp32s3]
-        # Добавляем понятные имена для артефактов
         include:
           - chip: esp32
             name: ESP32-WROOM
@@ -41,6 +40,10 @@ jobs:
           command: |
             idf.py set-target ${{ matrix.chip }}
             idf.py build
+
+      # 🔥 НОВЫЙ ШАГ: Устанавливаем esptool
+      - name: Установить esptool
+        run: pip install esptool
 
       - name: Создать единый файл прошивки для ${{ matrix.name }}
         run: |
