@@ -47,9 +47,9 @@ jobs:
       - name: Создать единый файл прошивки для ${{ matrix.name }}
         run: |
           esptool.py --chip ${{ matrix.chip }} merge_bin -o merged-firmware.bin \
-            build/bootloader/bootloader.bin \
-            build/partition_table/partition-table.bin \
-            build/ble2mqtt.bin
+            0x1000 build/bootloader/bootloader.bin \
+            0x8000 build/partition_table/partition-table.bin \
+            0x10000 build/ble2mqtt.bin
 
       - name: Загрузить артефакты для ${{ matrix.name }}
         uses: actions/upload-artifact@v4
