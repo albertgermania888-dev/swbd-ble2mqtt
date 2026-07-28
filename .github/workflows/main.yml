@@ -22,7 +22,11 @@ jobs:
         uses: espressif/esp-idf-ci-action@v1.1.0
         with:
           esp_idf_version: v5.2.1
-          command: idf.py image
+          command: >
+            cp sdkconfig.defaults.esp32c3        sdkconfig.defaults &&
+            idf.py set-target esp32c3 &&
+            idf.py fullclean &&
+            idf.py image
 
       - name: Upload Application Image
         uses: actions/upload-artifact@v2.2.4
