@@ -41,14 +41,18 @@ jobs:
             idf.py set-target ${{ matrix.chip }}
             idf.py build
 
-      # 🔥 НОВЫЙ ШАГ: Устанавливаем esptool
       - name: Установить esptool
         run: pip install esptool
 
       - name: Создать единый файл прошивки для ${{ matrix.name }}
         run: |
           cd build
-          esptool.py --chip ${{ matrix.chip }} merge_bin -o merged-firmware.bin @flash_args
+          # Явно указываем адреса для всех чипов
+          esptool.py --chip ${{ matrix.chip }} merge_bin -o merged-firmware.bin \
+            0x1000 bootloader.bin \
+            0x8000 partition-table.bin \
+            0xd000 ota_data_initial.bin \
+            0x10000 ble2mqtt.bin
           cd ..
 
       - name: Загрузить артефакты для ${{ matrix.name }}
