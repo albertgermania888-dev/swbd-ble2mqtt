@@ -46,25 +46,16 @@ jobs:
 
       - name: Создать единый файл прошивки для ${{ matrix.name }}
         run: |
-          cd build
-          # Удаляем старый файл, если он есть
-          rm -f merged-firmware.bin
-          # Проверяем содержимое папки
-          echo "📁 Содержимое папки build:"
-          ls -la
-          # Создаём новый файл
-          echo "📦 Создаём merged-firmware.bin..."
           esptool.py --chip ${{ matrix.chip }} merge_bin -o merged-firmware.bin \
-            0x1000 bootloader/bootloader.bin \
-            0x8000 partition_table/partition-table.bin \
-            0x10000 ble2mqtt.bin
-          cd ..
+            build/bootloader/bootloader.bin \
+            build/partition_table/partition-table.bin \
+            build/ble2mqtt.bin
 
       - name: Загрузить артефакты для ${{ matrix.name }}
         uses: actions/upload-artifact@v4
         with:
           name: firmware-${{ matrix.chip }}
-          path: build/merged-firmware.bin
+          path: merged-firmware.bin
 
       - name: Загрузить полную сборку для ${{ matrix.name }}
         uses: actions/upload-artifact@v4
@@ -80,7 +71,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/merged-firmware.bin
+          file: merged-firmware.bin
           asset_name: swbd-ble2mqtt_${{ matrix.chip }}_${{ github.ref_name }}.bin
           tag: ${{ github.ref }}
           overwrite: true
