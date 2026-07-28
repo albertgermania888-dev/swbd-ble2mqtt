@@ -2,19 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
   pull_request:
-    branches: [ master ]
-  release:
-    types: [ published ]
+    branches:
+      - master
   workflow_dispatch:
+  release:
+    types:
+      - published
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -22,11 +26,10 @@ jobs:
         uses: espressif/esp-idf-ci-action@v1.1.0
         with:
           esp_idf_version: v5.2.1
-          command: >
-            cp sdkconfig.defaults.esp32c3        sdkconfig.defaults &&
-            idf.py set-target esp32c3 &&
-            idf.py fullclean &&
-            idf.py image
+          target: esp32c3
+          command: |
+            idf.py set-target esp32c3
+            idf.py build
 
       - name: Upload Application Image
         uses: actions/upload-artifact@v4
@@ -37,11 +40,13 @@ jobs:
       - name: Upload Filesystem Image
         uses: actions/upload-artifact@v4
         with:
-          name: File System
+          name: FileSystem
           path: build/fs_0.bin
+          if-no-files-found: ignore
 
       - name: Upload Full Flash Image
         uses: actions/upload-artifact@v4
         with:
-          name: Full Flash Image
+          name: FullFlash
           path: build/ble2mqtt-full.bin
+          if-no-files-found: ignore
