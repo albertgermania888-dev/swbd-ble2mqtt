@@ -15,6 +15,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        chip: [esp32, esp32c3, esp32s3]
+        # Добавляем понятные имена для артефактов
+        include:
+          - chip: esp32
+            name: ESP32-WROOM
+          - chip: esp32c3
+            name: ESP32-C3
+          - chip: esp32s3
+            name: ESP32-S3
 
     steps:
       - name: Checkout
@@ -22,17 +33,42 @@ jobs:
         with:
           submodules: recursive
 
-      - name: ESP-IDF Build
+      - name: ESP-IDF Build for ${{ matrix.name }}
         uses: espressif/esp-idf-ci-action@v1.1.0
         with:
           esp_idf_version: v5.2.1
-          target: esp32c3
+          target: ${{ matrix.chip }}
           command: |
-            idf.py set-target esp32c3
+            idf.py set-target ${{ matrix.chip }}
             idf.py build
 
-      - name: Upload Build
+      - name: Создать единый файл прошивки для ${{ matrix.name }}
+        run: |
+          cd build
+          esptool.py --chip ${{ matrix.chip }} merge_bin -o merged-firmware.bin @flash_args
+          cd ..
+
+      - name: Загрузить артефакты для ${{ matrix.name }}
         uses: actions/upload-artifact@v4
         with:
-          name: Build
-          path: build
+          name: firmware-${{ matrix.chip }}
+          path: build/merged-firmware.bin
+
+      - name: Загрузить полную сборку для ${{ matrix.name }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.chip }}
+          path: |
+            build/
+            !build/CMakeFiles/
+            !build/esp-idf/
+
+      - name: Прикрепить к релизу для ${{ matrix.name }}
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/merged-firmware.bin
+          asset_name: swbd-ble2mqtt_${{ matrix.chip }}_${{ github.ref_name }}.bin
+          tag: ${{ github.ref }}
+          overwrite: true
