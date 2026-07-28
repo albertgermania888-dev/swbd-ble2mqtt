@@ -23,10 +23,10 @@ jobs:
         with:
           esp_idf_version: v5.2.1
           command: >
-            cp sdkconfig.defaults.esp32c3        sdkconfig.defaults &&
-            idf.py set-target esp32c3 &&
-            idf.py fullclean &&
-            idf.py image
+             cp sdkconfig.defaults.esp32c3        sdkconfig.defaults &&
+             idf.py set-target esp32c3 &&
+             idf.py fullclean &&
+             idf.py image
 
       - name: Upload Application Image
         uses: actions/upload-artifact@v2.2.4
