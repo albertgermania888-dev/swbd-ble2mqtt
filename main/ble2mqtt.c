@@ -26,6 +26,7 @@
 #include "swbd.h"
 
 #define MAX_TOPIC_LEN 256
+#define MAX_PAYLOAD_LEN 512
 static const char *TAG = "BLE2MQTT";
 
 const ble_uuid_t swbd_service =        {0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xe0, 0xff, 0x00, 0x00};
@@ -608,6 +609,77 @@ static void _ble_on_mqtt_get(const char *topic, const uint8_t *payload,
 static void _ble_on_mqtt_set(const char *topic, const uint8_t *payload,
     size_t len, void *ctx);
 
+static void publish_ha_discovery(mac_addr_t mac)
+{
+    char topic[MAX_TOPIC_LEN];
+    char payload[MAX_PAYLOAD_LEN];
+    char mac_str_clean[13];
+    char *mac_str = mactoa(mac); // a4:c1:38:a3:b2:fd
+
+    // Format clean MAC (e.g. a4c138a3b2fd)
+    sprintf(mac_str_clean, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    // Switch: Enable
+    snprintf(topic, MAX_TOPIC_LEN, "homeassistant/switch/%s/enable/config", mac_str_clean);
+    snprintf(payload, MAX_PAYLOAD_LEN,
+        "{\"name\":\"Качание\",\"uniq_id\":\"swbd_%s_enable\","
+        "\"stat_t\":\"%s/swbd/enable\",\"cmd_t\":\"%s/swbd/enable/Set\","
+        "\"pl_on\":\"1\",\"pl_off\":\"0\",\"stat_on\":\"1\",\"stat_off\":\"0\","
+        "\"dev\":{\"ids\":[\"swbd_%s\"],\"name\":\"Устройство укачивания\",\"mdl\":\"SWBD\",\"mf\":\"Karpesh\"}}",
+        mac_str_clean, mac_str, mac_str, mac_str_clean);
+    mqtt_publish(topic, (uint8_t *)payload, strlen(payload), config_mqtt_qos_get(), 1);
+
+    // Switch: Motion sensor
+    snprintf(topic, MAX_TOPIC_LEN, "homeassistant/switch/%s/move_sens_enable/config", mac_str_clean);
+    snprintf(payload, MAX_PAYLOAD_LEN,
+        "{\"name\":\"Датчик движения\",\"uniq_id\":\"swbd_%s_move_sens\","
+        "\"stat_t\":\"%s/swbd/move_sens_enable\",\"cmd_t\":\"%s/swbd/move_sens_enable/Set\","
+        "\"pl_on\":\"1\",\"pl_off\":\"0\",\"stat_on\":\"1\",\"stat_off\":\"0\","
+        "\"dev\":{\"ids\":[\"swbd_%s\"]}}",
+        mac_str_clean, mac_str, mac_str, mac_str_clean);
+    mqtt_publish(topic, (uint8_t *)payload, strlen(payload), config_mqtt_qos_get(), 1);
+
+    // Number: Speed
+    snprintf(topic, MAX_TOPIC_LEN, "homeassistant/number/%s/speed/config", mac_str_clean);
+    snprintf(payload, MAX_PAYLOAD_LEN,
+        "{\"name\":\"Скорость\",\"uniq_id\":\"swbd_%s_speed\","
+        "\"stat_t\":\"%s/swbd/speed\",\"cmd_t\":\"%s/swbd/speed/Set\","
+        "\"min\":1,\"max\":6,\"step\":1,"
+        "\"dev\":{\"ids\":[\"swbd_%s\"]}}",
+        mac_str_clean, mac_str, mac_str, mac_str_clean);
+    mqtt_publish(topic, (uint8_t *)payload, strlen(payload), config_mqtt_qos_get(), 1);
+
+    // Number: Sensitivity
+    snprintf(topic, MAX_TOPIC_LEN, "homeassistant/number/%s/sensivity/config", mac_str_clean);
+    snprintf(payload, MAX_PAYLOAD_LEN,
+        "{\"name\":\"Чувствительность микрофона\",\"uniq_id\":\"swbd_%s_sensivity\","
+        "\"stat_t\":\"%s/swbd/sensivity\",\"cmd_t\":\"%s/swbd/sensivity/Set\","
+        "\"min\":0,\"max\":5,\"step\":1,"
+        "\"dev\":{\"ids\":[\"swbd_%s\"]}}",
+        mac_str_clean, mac_str, mac_str, mac_str_clean);
+    mqtt_publish(topic, (uint8_t *)payload, strlen(payload), config_mqtt_qos_get(), 1);
+
+    // Number: Hours
+    snprintf(topic, MAX_TOPIC_LEN, "homeassistant/number/%s/hours/config", mac_str_clean);
+    snprintf(payload, MAX_PAYLOAD_LEN,
+        "{\"name\":\"Время (часы)\",\"uniq_id\":\"swbd_%s_hours\","
+        "\"stat_t\":\"%s/swbd/hours\",\"cmd_t\":\"%s/swbd/hours/Set\","
+        "\"min\":0,\"max\":23,\"step\":1,"
+        "\"dev\":{\"ids\":[\"swbd_%s\"]}}",
+        mac_str_clean, mac_str, mac_str, mac_str_clean);
+    mqtt_publish(topic, (uint8_t *)payload, strlen(payload), config_mqtt_qos_get(), 1);
+
+    // Number: Minutes
+    snprintf(topic, MAX_TOPIC_LEN, "homeassistant/number/%s/minutes/config", mac_str_clean);
+    snprintf(payload, MAX_PAYLOAD_LEN,
+        "{\"name\":\"Время (минуты)\",\"uniq_id\":\"swbd_%s_minutes\","
+        "\"stat_t\":\"%s/swbd/minutes\",\"cmd_t\":\"%s/swbd/minutes/Set\","
+        "\"min\":0,\"max\":59,\"step\":1,"
+        "\"dev\":{\"ids\":[\"swbd_%s\"]}}",
+        mac_str_clean, mac_str, mac_str, mac_str_clean);
+    mqtt_publish(topic, (uint8_t *)payload, strlen(payload), config_mqtt_qos_get(), 1);
+}
+
 static void ble_on_characteristic_found(mac_addr_t mac, ble_uuid_t service_uuid,
     ble_uuid_t characteristic_uuid, uint8_t index, uint8_t properties)
 {
@@ -690,6 +762,8 @@ static void ble_on_characteristic_found(mac_addr_t mac, ble_uuid_t service_uuid,
 
         
         
+        publish_ha_discovery(mac);
+
         // посылаем в устройство качания все нули, чтобы узнать его состояние
             uint8_t array[6];
          
