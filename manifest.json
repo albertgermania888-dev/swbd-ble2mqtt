@@ -1,0 +1,26 @@
+{
+  "name": "SWBD-BLE2MQTT",
+  "version": "latest",
+  "home_assistant_domain": "mqtt",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        { "path": "https://github.com/albertgermania888-dev/swbd-ble2mqtt/releases/latest/download/swbd-ble2mqtt_esp32_latest.bin", "offset": 0 }
+      ]
+    },
+    {
+      "chipFamily": "ESP32-C3",
+      "parts": [
+        { "path": "https://github.com/albertgermania888-dev/swbd-ble2mqtt/releases/latest/download/swbd-ble2mqtt_esp32c3_latest.bin", "offset": 0 }
+      ]
+    },
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        { "path": "https://github.com/albertgermania888-dev/swbd-ble2mqtt/releases/latest/download/swbd-ble2mqtt_esp32s3_latest.bin", "offset": 0 }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Установка прошивки SWBD-BLE2MQTT</title>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin-top: 50px;
+        background-color: #f4f4f4;
+        color: #333;
+      }
+      esp-web-install-button {
+        display: inline-block;
+        margin-top: 20px;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Прошивка SWBD-BLE2MQTT</h1>
+      <p>Подключите вашу плату ESP32 (поддерживаются ESP32, ESP32-C3, ESP32-S3) к компьютеру по USB и нажмите кнопку ниже, чтобы начать прошивку.</p>
+      <p><small><i>Примечание: веб-установщик работает только в браузерах на базе Chromium (Google Chrome, Microsoft Edge, Opera, Яндекс.Браузер).</i></small></p>
+
+      <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+    </div>
+  </body>
+</html>
