@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <title>Установка прошивки SWBD-BLE2MQTT</title>
+    <!-- esp-web-tools for auto flash -->
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
     <style>
       body {
@@ -24,15 +25,133 @@
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       }
+      .section {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #ccc;
+      }
+      .manual-flash {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      #status {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      button {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>Прошивка SWBD-BLE2MQTT</h1>
-      <p>Подключите вашу плату ESP32 (поддерживаются ESP32, ESP32-C3, ESP32-S3) к компьютеру по USB и нажмите кнопку ниже, чтобы начать прошивку.</p>
+      <p>Подключите вашу плату ESP32 (поддерживаются ESP32, ESP32-C3, ESP32-S3) к компьютеру по USB.</p>
       <p><small><i>Примечание: веб-установщик работает только в браузерах на базе Chromium (Google Chrome, Microsoft Edge, Opera, Яндекс.Браузер).</i></small></p>
 
-      <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+      <div class="section">
+        <h3>Автоматическая установка (Последняя версия)</h3>
+        <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+      </div>
+
+      <div class="section">
+        <h3>Ручная установка (из файла)</h3>
+        <p>Выберите файл прошивки (.bin), если автоматическая загрузка не работает.</p>
+        <div class="manual-flash">
+          <input type="file" id="firmwareFile" accept=".bin">
+          <button id="flashButton" disabled>Записать прошивку</button>
+        </div>
+        <div id="status"></div>
+      </div>
     </div>
+
+    <!-- esptool-js for manual flash -->
+    <script type="module">
+      import { ESPLoader, Transport } from "https://unpkg.com/esptool-js@0.5.4/bundle.js";
+
+      const fileInput = document.getElementById('firmwareFile');
+      const flashButton = document.getElementById('flashButton');
+      const statusDiv = document.getElementById('status');
+
+      let selectedFile = null;
+
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          selectedFile = e.target.files[0];
+          flashButton.disabled = false;
+        } else {
+          selectedFile = null;
+          flashButton.disabled = true;
+        }
+      });
+
+      flashButton.addEventListener('click', async () => {
+        if (!selectedFile) return;
+
+        statusDiv.innerText = "Запрашиваем доступ к порту...";
+        try {
+          const port = await navigator.serial.requestPort();
+          const transport = new Transport(port);
+          const loader = new ESPLoader(transport, 115200, null);
+
+          statusDiv.innerText = "Подключение к устройству...";
+          await loader.main_fn();
+
+          statusDiv.innerText = "Чтение файла...";
+          const fileData = await selectedFile.arrayBuffer();
+          const binaryString = new Uint8Array(fileData);
+          const fileArray = Array.from(binaryString);
+          const fileString = String.fromCharCode.apply(null, fileArray);
+
+          statusDiv.innerText = "Очистка и запись... (Подождите)";
+
+          // Flash to address 0x0 (assuming merged firmware)
+          await loader.flash_id();
+          await loader.write_flash({
+            fileArray: [{
+              data: fileString,
+              address: 0x0
+            }],
+            flash_size: "keep",
+            flash_mode: "keep",
+            flash_freq: "keep",
+            erase_all: false,
+            compress: true,
+            reportProgress: (fileIndex, written, total) => {
+                const percent = Math.round((written / total) * 100);
+                statusDiv.innerText = `Запись: ${percent}%`;
+            }
+          });
+
+          statusDiv.innerText = "Прошивка успешно завершена! Перезагрузите устройство.";
+
+          // Soft reset
+          await transport.setDTR(false);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          await transport.setRTS(false);
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          await transport.disconnect();
+
+        } catch (e) {
+          console.error(e);
+          statusDiv.innerText = "Ошибка: " + e.message;
+        }
+      });
+    </script>
   </body>
 </html>
