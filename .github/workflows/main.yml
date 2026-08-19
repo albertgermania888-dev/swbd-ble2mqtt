@@ -73,3 +73,43 @@ jobs:
           asset_name: swbd-ble2mqtt_${{ matrix.chip }}_${{ github.ref_name }}.bin
           tag: ${{ github.ref }}
           overwrite: true
+
+  deploy-pages:
+    needs: build
+    if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare assets
+        run: |
+          mkdir -p assets
+          cp artifacts/firmware-esp32/merged-firmware.bin assets/swbd-ble2mqtt_esp32.bin || true
+          cp artifacts/firmware-esp32c3/merged-firmware.bin assets/swbd-ble2mqtt_esp32c3.bin || true
+          cp artifacts/firmware-esp32s3/merged-firmware.bin assets/swbd-ble2mqtt_esp32s3.bin || true
+          ls -la assets/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

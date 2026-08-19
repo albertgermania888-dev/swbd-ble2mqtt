@@ -7,19 +7,19 @@
     {
       "chipFamily": "ESP32",
       "parts": [
-        { "path": "https://github.com/albertgermania888-dev/swbd-ble2mqtt/releases/latest/download/swbd-ble2mqtt_esp32_latest.bin", "offset": 0 }
+        { "path": "assets/swbd-ble2mqtt_esp32.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-C3",
       "parts": [
-        { "path": "https://github.com/albertgermania888-dev/swbd-ble2mqtt/releases/latest/download/swbd-ble2mqtt_esp32c3_latest.bin", "offset": 0 }
+        { "path": "assets/swbd-ble2mqtt_esp32c3.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-S3",
       "parts": [
-        { "path": "https://github.com/albertgermania888-dev/swbd-ble2mqtt/releases/latest/download/swbd-ble2mqtt_esp32s3_latest.bin", "offset": 0 }
+        { "path": "assets/swbd-ble2mqtt_esp32s3.bin", "offset": 0 }
       ]
     }
   ]
