@@ -762,7 +762,11 @@ static void ble_on_characteristic_found(mac_addr_t mac, ble_uuid_t service_uuid,
 
         
         
-        publish_ha_discovery(mac);
+        static bool discovery_published = false;
+        if (!discovery_published) {
+            publish_ha_discovery(mac);
+            discovery_published = true;
+        }
 
         // посылаем в устройство качания все нули, чтобы узнать его состояние
             uint8_t array[6];
