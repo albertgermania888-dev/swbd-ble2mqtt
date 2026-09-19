@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to SWBD Device",
+        "description": "Enter the MAC address of the Smart Baby Rocker.",
+        "data": {
+          "mac": "MAC Address"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Confirm SWBD Device",
+        "description": "Do you want to set up {name}?"
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "not_supported": "Device not supported"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SWBD Options",
+        "data": {
+          "connection_mode": "Connection Mode",
+          "polling_interval": "Polling Interval (minutes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "rocking": {
+        "name": "Rocking"
+      },
+      "motion_sensor": {
+        "name": "Motion Sensor"
+      }
+    },
+    "number": {
+      "speed": {
+        "name": "Speed"
+      },
+      "sensitivity": {
+        "name": "Sensitivity"
+      },
+      "hours": {
+        "name": "Hours"
+      },
+      "minutes": {
+        "name": "Minutes"
+      }
+    }
+  }
+}

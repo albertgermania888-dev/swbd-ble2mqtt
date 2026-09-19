@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Подключение к устройству SWBD",
+        "description": "Введите MAC-адрес умной качалки.",
+        "data": {
+          "mac": "MAC-адрес"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Подтверждение устройства SWBD",
+        "description": "Хотите настроить {name}?"
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться",
+      "unknown": "Неизвестная ошибка"
+    },
+    "abort": {
+      "already_configured": "Устройство уже настроено",
+      "not_supported": "Устройство не поддерживается"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки SWBD",
+        "data": {
+          "connection_mode": "Режим подключения",
+          "polling_interval": "Интервал опроса (минуты)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "rocking": {
+        "name": "Качание"
+      },
+      "motion_sensor": {
+        "name": "Датчик движения"
+      }
+    },
+    "number": {
+      "speed": {
+        "name": "Скорость"
+      },
+      "sensitivity": {
+        "name": "Чувствительность"
+      },
+      "hours": {
+        "name": "Время (часы)"
+      },
+      "minutes": {
+        "name": "Время (минуты)"
+      }
+    }
+  }
+}
