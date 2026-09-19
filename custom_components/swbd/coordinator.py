@@ -134,7 +134,19 @@ class SWBDCoordinator(DataUpdateCoordinator):
     def _handle_disconnect(self, client: BleakClient) -> None:
         """Handle device disconnection."""
         if self.mode == MODE_CONTINUOUS:
-            self.hass.async_create_task(self.async_request_refresh())
+            # We must schedule a reconnect without permanently failing the coordinator
+            _LOGGER.info("Disconnected from device, scheduling reconnect")
+            # Clear current client state
+            self._client = None
+            self.hass.async_create_task(self._async_reconnect())
+
+    async def _async_reconnect(self):
+        """Background task to reconnect if disconnected."""
+        try:
+            await asyncio.sleep(2)
+            await self.async_request_refresh()
+        except Exception as e:
+             _LOGGER.error(f"Error during reconnect task: {e}")
 
     async def async_send_command(self, **kwargs) -> None:
         """Update the state array and send to device."""
@@ -172,41 +184,33 @@ class SWBDCoordinator(DataUpdateCoordinator):
         if not self._ble_device:
             raise Exception(f"Could not find device with MAC {self.mac}")
 
-        if self.mode == MODE_POLLING:
-             # Interrupt sleep and connect immediately
-             try:
-                 client = await establish_connection(
-                     BleakClient,
-                     self._ble_device,
-                     self.mac,
-                     disconnected_callback=None
-                 )
-                 await client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
-             except Exception as e:
-                 _LOGGER.error(f"Failed to send command: {e}")
-                 # Revert state on failure if needed (omitted for simplicity, user can retry)
-             finally:
-                 if 'client' in locals() and client.is_connected:
-                     await client.disconnect()
+        if self.mode == MODE_CONTINUOUS and self._client and self._client.is_connected:
+            # Send immediately on the active connection without re-establishing
+            try:
+                await self._client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
+            except Exception as e:
+                _LOGGER.error(f"Failed to send command on active connection: {e}")
         else:
-             if not self._client or not self._client.is_connected:
-                 # Reconnect if disconnected
-                 try:
-                     self._client = await establish_connection(
-                         BleakClient,
-                         self._ble_device,
-                         self.mac,
-                         disconnected_callback=self._handle_disconnect
-                     )
-                     await self._client.start_notify(SWBD_CHAR_UUID, self._notification_handler)
-                 except Exception as e:
-                     _LOGGER.error(f"Failed to reconnect to send command: {e}")
-                     return
+            # We are either in polling mode, or the continuous client dropped
+            try:
+                client = await establish_connection(
+                    BleakClient,
+                    self._ble_device,
+                    self.mac,
+                    disconnected_callback=self._handle_disconnect if self.mode == MODE_CONTINUOUS else None
+                )
 
-             try:
-                 await self._client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
-             except Exception as e:
-                  _LOGGER.error(f"Failed to send command: {e}")
+                # If continuous mode dropped, update our client handle
+                if self.mode == MODE_CONTINUOUS:
+                    self._client = client
+                    await self._client.start_notify(SWBD_CHAR_UUID, self._notification_handler)
+
+                await client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
+            except Exception as e:
+                _LOGGER.error(f"Failed to send command: {e}")
+            finally:
+                if self.mode == MODE_POLLING and 'client' in locals() and client.is_connected:
+                    await client.disconnect()
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator and close connection."""

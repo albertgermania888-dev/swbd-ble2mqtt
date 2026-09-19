@@ -12,6 +12,12 @@ from homeassistant.components.bluetooth import (
 from homeassistant.const import CONF_MAC
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .const import (
     DOMAIN,
@@ -24,6 +30,28 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+def _get_schema(mac_options=None):
+    """Return the schema for the config flow."""
+    schema = {}
+
+    if mac_options:
+        schema[vol.Required(CONF_MAC)] = SelectSelector(
+            SelectSelectorConfig(
+                options=mac_options,
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        )
+    else:
+        schema[vol.Required(CONF_MAC)] = str
+
+    schema[vol.Required(CONF_CONNECTION_MODE, default=MODE_CONTINUOUS)] = vol.In({
+        MODE_CONTINUOUS: "Continuous (Real-time updates)",
+        MODE_POLLING: "Polling (Connect periodically to save resources)"
+    })
+    schema[vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL)] = vol.All(vol.Coerce(int), vol.Range(min=1, max=60))
+
+    return vol.Schema(schema)
 
 class SWBDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SWBD."""
@@ -61,11 +89,22 @@ class SWBDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=self._name,
                 data={CONF_MAC: self._mac},
+                options={
+                    CONF_CONNECTION_MODE: user_input[CONF_CONNECTION_MODE],
+                    CONF_POLLING_INTERVAL: user_input[CONF_POLLING_INTERVAL]
+                }
             )
 
         self._set_confirm_only()
         return self.async_show_form(
             step_id="bluetooth_confirm",
+            data_schema=vol.Schema({
+                vol.Required(CONF_CONNECTION_MODE, default=MODE_CONTINUOUS): vol.In({
+                    MODE_CONTINUOUS: "Continuous (Real-time updates)",
+                    MODE_POLLING: "Polling (Connect periodically to save resources)"
+                }),
+                vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=1, max=60))
+            }),
             description_placeholders={"name": self._name},
         )
 
@@ -83,21 +122,26 @@ class SWBDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=f"SWBD {mac}",
                 data={CONF_MAC: mac},
+                options={
+                    CONF_CONNECTION_MODE: user_input[CONF_CONNECTION_MODE],
+                    CONF_POLLING_INTERVAL: user_input[CONF_POLLING_INTERVAL]
+                }
             )
 
         # Build list of discovered devices that haven't been added yet
         discovered_devices = []
         for dev in async_discovered_service_info(self.hass):
             if SWBD_SERVICE_UUID in dev.advertisement.service_uuids:
-                discovered_devices.append(dev.address)
+                discovered_devices.append(
+                    SelectOptionDict(
+                        value=dev.address,
+                        label=f"{dev.name or 'SWBD'} ({dev.address})"
+                    )
+                )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_MAC): str,
-                }
-            ),
+            data_schema=_get_schema(discovered_devices if discovered_devices else None),
             errors=errors,
         )
 
