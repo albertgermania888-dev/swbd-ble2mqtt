@@ -31,6 +31,17 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+def get_friendly_name(name):
+    """Return friendly name for known devices."""
+    if not name:
+        return "Unknown SWBD"
+    lower_name = name.lower()
+    if "mc1" in lower_name: return f"{name} (Паинька)"
+    if "mc2" in lower_name: return f"{name} (Соня)"
+    if "mc3" in lower_name: return f"{name} (Тихоня)"
+    if "mc5" in lower_name: return f"{name} (Совушка)"
+    return name
+
 def _get_schema(mac_options=None):
     """Return the schema for the config flow."""
     schema = {}
@@ -71,19 +82,13 @@ class SWBDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(discovery_info.address)
         self._abort_if_unique_id_configured()
 
-        # Check if it has the required service or name
-        is_swbd = False
-        if SWBD_SERVICE_UUID in discovery_info.advertisement.service_uuids:
-            is_swbd = True
-        elif discovery_info.name and discovery_info.name.startswith("SWBDdrv_mc"):
-            is_swbd = True
-
-        if not is_swbd:
+        # Check if it has the required name
+        if not discovery_info.name or "swbddrv_mc" not in discovery_info.name.lower():
             return self.async_abort(reason="not_supported")
 
         self._discovery_info = discovery_info
         self._mac = discovery_info.address
-        self._name = discovery_info.name or f"SWBD {discovery_info.address}"
+        self._name = get_friendly_name(discovery_info.name)
 
         return await self.async_step_bluetooth_confirm()
 
@@ -137,19 +142,16 @@ class SWBDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Build list of discovered devices that haven't been added yet
         discovered_devices = []
         for dev in async_discovered_service_info(self.hass):
-            is_swbd = False
-            if SWBD_SERVICE_UUID in dev.advertisement.service_uuids:
-                is_swbd = True
-            elif dev.name and dev.name.startswith("SWBDdrv_mc"):
-                is_swbd = True
+            if not dev.name or "swbddrv_mc" not in dev.name.lower():
+                continue
 
-            if is_swbd:
-                discovered_devices.append(
-                    SelectOptionDict(
-                        value=dev.address,
-                        label=f"{dev.name or 'SWBD'} ({dev.address})"
-                    )
+            friendly_name = get_friendly_name(dev.name)
+            discovered_devices.append(
+                SelectOptionDict(
+                    value=dev.address,
+                    label=f"{friendly_name} ({dev.address})"
                 )
+            )
 
         return self.async_show_form(
             step_id="user",

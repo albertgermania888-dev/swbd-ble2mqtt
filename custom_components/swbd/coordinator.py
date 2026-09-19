@@ -32,7 +32,7 @@ class SWBDCoordinator(DataUpdateCoordinator):
         self.options = options
         self._client: BleakClient | None = None
         self._ble_device: BLEDevice | None = None
-        self.state_array = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        self.state_array = bytearray([0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
 
         mode = options.get(CONF_CONNECTION_MODE, MODE_CONTINUOUS)
         interval = options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
@@ -47,6 +47,9 @@ class SWBDCoordinator(DataUpdateCoordinator):
             name=DOMAIN,
             update_interval=update_interval,
         )
+
+        # Initialize data immediately so entities don't stay unavailable
+        self.data = self._parse_state(self.state_array)
 
     @property
     def mode(self) -> str:
@@ -114,8 +117,7 @@ class SWBDCoordinator(DataUpdateCoordinator):
     async def _ensure_continuous_connection(self) -> dict[str, Any]:
         """Ensure connection is maintained and read latest state."""
         if self._client and self._client.is_connected:
-            if self.data is not None:
-                return self.data
+            return self.data
 
         try:
             self._client = await establish_connection(
@@ -152,10 +154,6 @@ class SWBDCoordinator(DataUpdateCoordinator):
 
     async def async_send_command(self, **kwargs) -> None:
         """Update the state array and send to device."""
-        if self.data is None:
-             # Initialize default data state if none exists yet
-             self.async_set_updated_data(self._parse_state(self.state_array))
-
         new_state = bytearray(self.state_array)
 
         if "enable" in kwargs:
@@ -169,8 +167,8 @@ class SWBDCoordinator(DataUpdateCoordinator):
         if "sensitivity" in kwargs:
             new_state[1] = (new_state[1] & 0xF8) | (kwargs["sensitivity"] & 0x07)
         if "hours" in kwargs or "minutes" in kwargs:
-            hours = kwargs.get("hours", self.data["hours"])
-            minutes = kwargs.get("minutes", self.data["minutes"])
+            hours = kwargs.get("hours", self.data["hours"]) if self.data else 0
+            minutes = kwargs.get("minutes", self.data["minutes"]) if self.data else 0
             total_minutes = (int(hours) * 60) + int(minutes)
             new_state[2] = (total_minutes >> 8) & 0xFF
             new_state[3] = total_minutes & 0xFF
@@ -186,33 +184,42 @@ class SWBDCoordinator(DataUpdateCoordinator):
             _LOGGER.error(f"Could not find device with MAC {self.mac}")
             return
 
-        if self.mode == MODE_CONTINUOUS and self._client and self._client.is_connected:
-            # Send immediately on the active connection without re-establishing
-            try:
-                await self._client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
-            except Exception as e:
-                _LOGGER.error(f"Failed to send command on active connection: {e}")
+        if self.mode == MODE_CONTINUOUS:
+            if self._client and self._client.is_connected:
+                # Send immediately on the active connection without re-establishing
+                try:
+                    await self._client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
+                except Exception as e:
+                    _LOGGER.error(f"Failed to send command on active connection: {e}")
+            else:
+                # The continuous client dropped, establish connection and update the handle
+                try:
+                    client = await establish_connection(
+                        BleakClient,
+                        self._ble_device,
+                        self.mac,
+                        disconnected_callback=self._handle_disconnect
+                    )
+                    self._client = client
+                    await self._client.start_notify(SWBD_CHAR_UUID, self._notification_handler)
+                    await self._client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
+                except Exception as e:
+                    _LOGGER.error(f"Failed to send command: {e}")
         else:
-            # We are either in polling mode, or the continuous client dropped
+            # Polling mode: always establish, write, and disconnect
             client = None
             try:
                 client = await establish_connection(
                     BleakClient,
                     self._ble_device,
                     self.mac,
-                    disconnected_callback=self._handle_disconnect if self.mode == MODE_CONTINUOUS else None
+                    disconnected_callback=None
                 )
-
-                # If continuous mode dropped, update our client handle
-                if self.mode == MODE_CONTINUOUS:
-                    self._client = client
-                    await self._client.start_notify(SWBD_CHAR_UUID, self._notification_handler)
-
                 await client.write_gatt_char(SWBD_CHAR_UUID, new_state, response=False)
             except Exception as e:
                 _LOGGER.error(f"Failed to send command: {e}")
             finally:
-                if self.mode == MODE_POLLING and client and client.is_connected:
+                if client and client.is_connected:
                     await client.disconnect()
 
     async def async_shutdown(self) -> None:
