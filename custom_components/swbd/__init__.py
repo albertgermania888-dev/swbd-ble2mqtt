@@ -25,7 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Schedule the first update in the background
-    hass.async_create_task(coordinator.async_config_entry_first_refresh())
+    hass.async_create_task(coordinator.async_request_refresh())
 
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 

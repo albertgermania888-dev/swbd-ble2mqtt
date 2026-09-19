@@ -32,7 +32,7 @@ class SWBDCoordinator(DataUpdateCoordinator):
         self.options = options
         self._client: BleakClient | None = None
         self._ble_device: BLEDevice | None = None
-        self.state_array = bytearray(6)
+        self.state_array = bytearray([0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 
         mode = options.get(CONF_CONNECTION_MODE, MODE_CONTINUOUS)
         interval = options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
@@ -75,7 +75,7 @@ class SWBDCoordinator(DataUpdateCoordinator):
         """Calculate the checksum."""
         sum_val = 0
         for i in range(5):
-            sum_val += data[i] * 211
+            sum_val = (sum_val + data[i] * 211) & 0xFFFF
             sum_val = sum_val ^ (sum_val >> 8)
         return sum_val & 0xFF
 
@@ -92,6 +92,7 @@ class SWBDCoordinator(DataUpdateCoordinator):
 
     async def _poll_device(self) -> dict[str, Any]:
         """Connect, read, and disconnect."""
+        client = None
         try:
             client = await establish_connection(
                 BleakClient,
@@ -107,13 +108,14 @@ class SWBDCoordinator(DataUpdateCoordinator):
         except Exception as e:
             raise UpdateFailed(f"Error communicating with device: {e}")
         finally:
-            if 'client' in locals() and client.is_connected:
+            if client and client.is_connected:
                 await client.disconnect()
 
     async def _ensure_continuous_connection(self) -> dict[str, Any]:
         """Ensure connection is maintained and read latest state."""
         if self._client and self._client.is_connected:
-            return self.data
+            if self.data is not None:
+                return self.data
 
         try:
             self._client = await establish_connection(
@@ -150,12 +152,11 @@ class SWBDCoordinator(DataUpdateCoordinator):
 
     async def async_send_command(self, **kwargs) -> None:
         """Update the state array and send to device."""
-        new_state = bytearray(self.state_array)
+        if self.data is None:
+             # Initialize default data state if none exists yet
+             self.async_set_updated_data(self._parse_state(self.state_array))
 
-        # We need to maintain the current state, so we update only the changed parts
-        # If we have no state, we shouldn't send commands
-        if not hasattr(self, 'data') or self.data is None:
-             raise Exception("Cannot send command before receiving initial state")
+        new_state = bytearray(self.state_array)
 
         if "enable" in kwargs:
             val = 1 if kwargs["enable"] else 0
@@ -182,7 +183,8 @@ class SWBDCoordinator(DataUpdateCoordinator):
 
         self._ble_device = async_ble_device_from_address(self.hass, self.mac, connectable=True)
         if not self._ble_device:
-            raise Exception(f"Could not find device with MAC {self.mac}")
+            _LOGGER.error(f"Could not find device with MAC {self.mac}")
+            return
 
         if self.mode == MODE_CONTINUOUS and self._client and self._client.is_connected:
             # Send immediately on the active connection without re-establishing
@@ -192,6 +194,7 @@ class SWBDCoordinator(DataUpdateCoordinator):
                 _LOGGER.error(f"Failed to send command on active connection: {e}")
         else:
             # We are either in polling mode, or the continuous client dropped
+            client = None
             try:
                 client = await establish_connection(
                     BleakClient,
@@ -209,7 +212,7 @@ class SWBDCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.error(f"Failed to send command: {e}")
             finally:
-                if self.mode == MODE_POLLING and 'client' in locals() and client.is_connected:
+                if self.mode == MODE_POLLING and client and client.is_connected:
                     await client.disconnect()
 
     async def async_shutdown(self) -> None:

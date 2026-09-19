@@ -71,8 +71,14 @@ class SWBDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(discovery_info.address)
         self._abort_if_unique_id_configured()
 
-        # Check if it has the required service
-        if SWBD_SERVICE_UUID not in discovery_info.advertisement.service_uuids:
+        # Check if it has the required service or name
+        is_swbd = False
+        if SWBD_SERVICE_UUID in discovery_info.advertisement.service_uuids:
+            is_swbd = True
+        elif discovery_info.name and discovery_info.name.startswith("SWBDdrv_mc"):
+            is_swbd = True
+
+        if not is_swbd:
             return self.async_abort(reason="not_supported")
 
         self._discovery_info = discovery_info
@@ -131,7 +137,13 @@ class SWBDConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Build list of discovered devices that haven't been added yet
         discovered_devices = []
         for dev in async_discovered_service_info(self.hass):
+            is_swbd = False
             if SWBD_SERVICE_UUID in dev.advertisement.service_uuids:
+                is_swbd = True
+            elif dev.name and dev.name.startswith("SWBDdrv_mc"):
+                is_swbd = True
+
+            if is_swbd:
                 discovered_devices.append(
                     SelectOptionDict(
                         value=dev.address,
